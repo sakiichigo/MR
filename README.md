@@ -1,2 +1,2 @@
 # MR
-code for MR
+code for Mendelian Research
