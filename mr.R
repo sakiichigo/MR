@@ -4,27 +4,27 @@ library(ggplot2)
 library(ieugwasr)
 library(MRPRESSO)
 library(RadialMR)
-#Define folders
-workPath="C:/Users/user/Desktop/work"
+#定义文件夹
+workPath="C:/Users/user/Desktop/walking pace"
 
-#Do you keep or he ple records
-saveAllRecord=TRUE
-exportPDF=TRUE
+#是否留存or,he,ple记录
+saveRecord=TRUE
+exportFile=FALSE
 
-#Create folders
-dir.create(paste(workPath,"/outcome",sep=""))#outcome file path
-dir.create(paste(workPath,"/exposure",sep=""))#exposure file path
-#Put the exposure and ending IDs in /exposure and /outcome
-dir.create(paste(workPath,"/result",sep=""))#result file path
-if(saveAllRecord){
-  dir.create(paste(workPath,"/result/or",sep=""))#or file path
-  dir.create(paste(workPath,"/result/ple",sep=""))#ple file path
-  dir.create(paste(workPath,"/result/he",sep=""))#he file path
-  dir.create(paste(workPath,"/result/pdf",sep=""))#pdf file path
-  dir.create(paste(workPath,"/result/steiger",sep=""))#steiger file path
-  dir.create(paste(workPath,"/result/direct",sep=""))#direct file path
-  dir.create(paste(workPath,"/result/presso",sep=""))#presso file path
-  dir.create(paste(workPath,"/result/radialMR",sep=""))#radialMR file path
+#创建文件夹
+dir.create(paste(workPath,"/outcome",sep=""))#结局文件路径
+dir.create(paste(workPath,"/exposure",sep=""))#暴露文件路径
+#把暴露和结局ID放进/exposure和/outcome
+dir.create(paste(workPath,"/result",sep=""))#结果路径
+if(saveRecord){
+  dir.create(paste(workPath,"/result/or",sep=""))#or文件路径
+  dir.create(paste(workPath,"/result/ple",sep=""))#ple文件路径
+  dir.create(paste(workPath,"/result/he",sep=""))#he文件路径
+  dir.create(paste(workPath,"/result/pdf",sep=""))#pdf文件路径
+  dir.create(paste(workPath,"/result/steiger",sep=""))#steiger文件路径
+  dir.create(paste(workPath,"/result/direct",sep=""))#direct文件路径
+  dir.create(paste(workPath,"/result/presso",sep=""))#presso文件路径
+  dir.create(paste(workPath,"/result/radialMR",sep=""))#radialMR文件路径
 }
 
 #The following one-click runs
@@ -70,7 +70,7 @@ mr_raps_modified <- function (b_exp, b_out, se_exp, se_out,parameters)
 }
 
 
-#outcome file
+#结局文件
 outcomeId=c()
 outPath=list.files(path=paste(workPath,"/outcome",sep=""), pattern=NULL, all.files=FALSE, full.names=FALSE)
 for(m in outPath){
@@ -79,165 +79,221 @@ for(m in outPath){
 }
 outcomeId=unique(outcomeId)
 length_outcome=length(outcomeId)
-#Expose files + analyze + save
+#暴露文件+分析+保存
 expPath=list.files(path=paste(workPath,"/exposure",sep=""), pattern=NULL, all.files=FALSE, full.names=FALSE)
 length_exporsure_path=length(expPath)
-errorData_exp=c();#error dataa
+allResultTable=data.frame()
+errorData_exp=c();#报错数据
 errorData_out=c();
-k_temp=1#operation progress
+k_temp=5#运行进度
 i_temp=1
 j_temp=1
-#An error is interrupted during the long execution cycle, and the K cycle can be continued if the cycle is re-executed (the environment is not cleared).
-for(k in k_temp:length_exporsure_path){
+#执行长循环时报错中断，重新执行k循环可接续（环境未清空）
+for(k in k_temp:length_exporsure_path){#读取暴露id
   k_temp=k
   sheet_name=expPath[k]
   exposureId=read.table(paste(workPath,'/exposure/',sheet_name,sep=""),fill = TRUE,row.names = NULL)[,c(1)]
   length_exporsure=length(exposureId)
   resultTable=data.frame()
   resultTable_ivw=data.frame()
-  for(i in i_temp:length_exporsure){#exposure
+  for(i in i_temp:length_exporsure){#读取暴露
     i_temp=i
     n=exposureId[i]
     while(TRUE){
       message_to_next <<- TRUE
       error_to_next <<- FALSE
-      try({
+      result=tryCatch({
         withCallingHandlers(
           exposure_dat<-extract_instruments(n),
           message = function(c) if (stringr::str_detect(as.character(c),"Failed to"))
             message_to_next <<- FALSE)
-        error_to_next <<- TRUE})
-      if(message_to_next == TRUE&error_to_next == TRUE) { break }
+        error_to_next <<- TRUE
+      },
+      error=function(e) {
+        print(e)
+      })
+      if(message_to_next == TRUE&error_to_next == TRUE)
+        break
+      if(result$message=="There was an error, please contact the developers"){
+        exposure_dat=NULL
+        break
+      }
     }
-    #empty data
+    #空数据
     if(!length(exposure_dat) ){
       errorData_exp=c(errorData_exp,n)
       next
     }
-    #outcome
+    #结局变量
     for(j in j_temp:length_outcome){
+      print(as.POSIXlt(Sys.time()))
+      print(paste('exposure file:',sheet_name,'   process:',k,'/',length_exporsure_path))
+      print(paste('id.exposure:',n,'   process:',i,'/',length_exporsure))
+      print(paste('id.outcome:',m,'   process:',j,'/',length_outcome))
       j_temp=j
       m=outcomeId[j]
       while(TRUE){
         message_to_next <<- TRUE
         error_to_next <<- FALSE
-        try({
+        result=tryCatch({
           withCallingHandlers(
             outcome_dat<-extract_outcome_data(snps=exposure_dat$SNP,outcomes = m),
             message = function(c) if (stringr::str_detect(as.character(c),"Failed to"))
               message_to_next <<- FALSE)
-          error_to_next <<- TRUE})
-        if(message_to_next == TRUE&error_to_next == TRUE) { break }
+          error_to_next <<- TRUE
+        },
+        error=function(e) {
+          print(e)
+        })
+        if(message_to_next == TRUE&error_to_next == TRUE)
+          break
+        if(result$message=="There was an error, please contact the developers"){
+          outcome_dat=NULL
+          break
+        }
       }
-      #empty data
+      #空数据
       if(!length(outcome_dat) ){
         errorData_out=c(errorData_out,m)
         next
       }
       dat <- harmonise_data(exposure_dat,outcome_dat)
-      he<-mr_heterogeneity(dat);
-      if(he[he$method=="Inverse variance weighted",]$Q_pval<0.05){
-        he=mr_heterogeneity(dat, method_list = c("mr_egger_regression", "mr_ivw_mre"))#he change method
-        #Random effects when heterogeneity is present: ivw_mre
-        res <- mr(dat,method_list=c( "mr_egger_regression","mr_weighted_median","mr_ivw_mre","mr_raps_modified","mr_weighted_mode"))
-        ivw="Inverse variance weighted (multiplicative random effects)"
-      }else{
+      if(!length(dat) ){
+        errorData_out=c(errorData_out,m)
+        errorData_exp=c(errorData_exp,n)
+        next
+      }
+      if(dim(dat)[1]==1){
+        ple<-data.frame()
+        he<-data.frame()
         #res <- mr(dat)
         res <- mr(dat,method_list=c("mr_egger_regression","mr_weighted_median","mr_ivw","mr_raps_modified","mr_weighted_mode"))
         ivw="Inverse variance weighted"
+      }else{
+        ple<-mr_pleiotropy_test(dat);
+        he<-mr_heterogeneity(dat);
+        if(he[he$method=="Inverse variance weighted",]$Q_pval<0.05){
+          he=mr_heterogeneity(dat, method_list = c("mr_egger_regression", "mr_ivw_mre"))#he更改方法
+          #存在异质性时随机效应ivw_mre，同时raps替换simple mode
+          res <- mr(dat,method_list=c( "mr_egger_regression","mr_weighted_median","mr_ivw_mre","mr_raps_modified","mr_weighted_mode"))
+          ivw="Inverse variance weighted (multiplicative random effects)"
+        }else{
+          #res <- mr(dat)
+          res <- mr(dat,method_list=c("mr_egger_regression","mr_weighted_median","mr_ivw","mr_raps_modified","mr_weighted_mode"))
+          ivw="Inverse variance weighted"
+        }
+        res[is.na(res$method),]$method="Robust Adjusted Profile Score"
       }
-      res[is.na(res$method),]$method="Robust Adjusted Profile Score"
-      #mr_method_list()#List the methods
-      #empty data
+      #mr_method_list()#列出方法
+      #空数据
       if(length(res)==0){
         next
       }
       or<-generate_odds_ratios(res);
-      ple<-mr_pleiotropy_test(dat);
-      print(as.POSIXlt(Sys.time()))
-      print(paste('exposure file:',sheet_name,'   process:',k,'/',length_exporsure_path))
-      print(paste('id.exposure:',n,'   process:',i,'/',length_exporsure))
-      print(paste('id.outcome:',m,'   process:',j,'/',length_outcome))
-      #Record keeping
-      if(saveAllRecord){
+      #or写入HE，只保留IVW
+      if(length(he)==0){
+        or[,15]=NA
+      }else{
+        if(dim(he)[1]>1&he[2,]$method==ivw){
+          or[,15]=he[he$method==ivw,]$Q_pval
+        }else{
+          or[,15]=he[1,]$Q_pval
+        }
+      }
+      colnames(or)[15]="he"
+      #or写入PLE
+      if(length(ple)==0){
+        or[,16]=NA
+      }else{
+        or[,16]=ple[1,7]
+      }
+      colnames(or)[16]="ple"
+      or[,17]=Ff(exposure_dat)$fm
+      colnames(or)[17]="F"
+      allResultTable=rbind(allResultTable,or)
+      
+      #留存记录
+      if(saveRecord){
         write.csv(or,paste(workPath,"/result/or/",n,' ',m," or.csv",sep=""),row.names = F)
         write.csv(ple,paste(workPath,"/result/ple/",n,' ',m," ple.csv",sep=""),row.names = F)
         write.csv(he,paste(workPath,"/result/he/",n,' ',m," he.csv",sep=""),row.names = F)
         if((!is.na(dat$samplesize.exposure[1]))&(!is.na(dat$samplesize.outcome[1]))){
-          direct=directionality_test(dat)#Reverse cause and effect
-          steiger<-steiger_filtering(dat)#Steiger filter
+          direct=directionality_test(dat)#反向因果
+          steiger<-steiger_filtering(dat)#Steiger过滤
           write.csv(direct,paste(workPath,"/result/direct/",n,' ',m," direct.csv",sep=""),row.names = F)
           write.csv(steiger,paste(workPath,"/result/steiger/",n,' ',m," steiger.csv",sep=""),row.names = F)
         }
-        presso=mr_presso(BetaOutcome ="beta.outcome", BetaExposure = "beta.exposure", SdOutcome ="se.outcome", SdExposure = "se.exposure", 
-                         OUTLIERtest = TRUE,DISTORTIONtest = TRUE, data = dat, NbDistribution = 1000,  
-                         SignifThreshold = 0.05)
-        write.csv(presso$`Main MR results`,paste(workPath,"/result/presso/",n,' ',m," Main MR results.csv",sep=""),row.names = F)
-        
-        write.csv(presso$`MR-PRESSO results`,paste(workPath,"/result/presso/",n,' ',m," MR-PRESSO results.csv",sep=""),row.names = F)
-        #radialMR
-        egger_radial<- egger_radial(r_input = dat, alpha = 0.05,
-                                    weights = 1, summary = TRUE)
-        
-        write.csv(egger_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," egger_radial data.csv",sep=""),row.names =FALSE)
-        if(dim(dat)[1]>5){
-          ivw_radial<- ivw_radial(r_input = dat, alpha = 0.05,
-                                  weights = 1, tol = 0.0001, summary = TRUE)
-          write.csv(ivw_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," ivw_radial data.csv",sep=""),row.names =FALSE)
-          #which(ivw_radial$data$Outliers == "Outlier") 
-          plot_radial(c(ivw_radial,egger_radial))
-        }else{
-          plot_radial(egger_radial)
+        if(exportFile){
+          #敏感性校验
+          #presso
+          if(dim(dat)[1]>3){
+            presso=mr_presso(BetaOutcome ="beta.outcome", BetaExposure = "beta.exposure", SdOutcome ="se.outcome", SdExposure = "se.exposure", 
+                             OUTLIERtest = TRUE,DISTORTIONtest = TRUE, data = dat, NbDistribution = 1000,  
+                             SignifThreshold = 0.05)
+            write.csv(presso$`Main MR results`,paste(workPath,"/result/presso/",n,' ',m," Main MR results.csv",sep=""),row.names = F)
+            outliersIndices=presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`
+            if(length(outliersIndices)>=2){
+              presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`=toString(outliersIndices)
+            }
+            write.csv(presso$`MR-PRESSO results`,paste(workPath,"/result/presso/",n,' ',m," MR-PRESSO results.csv",sep=""),row.names = F)
+          }
+          #radialMR
+          if(dim(dat)[1]>1){
+            egger_radial<- egger_radial(r_input = dat, alpha = 0.05,
+                                        weights = 1, summary = TRUE)
+            write.csv(egger_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," egger_radial data.csv",sep=""),row.names =FALSE)
+            
+          }
+          if(dim(dat)[1]>5){
+            ivw_radial<- ivw_radial(r_input = dat, alpha = 0.05,
+                                    weights = 1, tol = 0.0001, summary = TRUE)
+            write.csv(ivw_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," ivw_radial data.csv",sep=""),row.names =FALSE)
+            #which(ivw_radial$data$Outliers == "Outlier") 
+            plot_radial(c(ivw_radial,egger_radial))
+            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," radialMR.pdf"))
+          }else if(dim(dat)[1]>2){
+            plot_radial(egger_radial)
+            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," radialMR.pdf"))
+          }
+          
+          #可视化
+          #留一
+          single <- mr_leaveoneout(dat)
+          if(length(unique(single$SNP))==length(single$SNP)){
+            mr_leaveoneout_plot(single)
+            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," leaveoneout.pdf"))
+          }
+          #散点
+          mr_scatter_plot(res,dat)
+          ggsave(paste0(workPath,"/result/pdf/",n,' ',m," scatter_plot.pdf"))
+          res_single <- mr_singlesnp(dat)
+          if(length(unique(single$SNP))==length(single$SNP)){
+            #森林
+            mr_forest_plot(res_single)
+            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," forest_plot.pdf"))
+            #漏斗
+            mr_funnel_plot(res_single)
+            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," funnel_plot.pdf"))
+          }
         }
-        ggsave(paste0(workPath,"/result/pdf/",n,' ',m," radialMR.pdf"))
         
       }
-      if(exportPDF){
-        #leave out
-        single <- mr_leaveoneout(dat)
-        if(length(unique(single$SNP))==length(single$SNP)){
-          mr_leaveoneout_plot(single)
-          ggsave(paste0(workPath,"/result/pdf/",n,' ',m," leaveoneout.pdf"))
-        }
-        #scatter
-        mr_scatter_plot(res,dat)
-        ggsave(paste0(workPath,"/result/pdf/",n,' ',m," scatter_plot.pdf"))
-        res_single <- mr_singlesnp(dat)
-        if(length(unique(single$SNP))==length(single$SNP)){
-          #forest
-          mr_forest_plot(res_single)
-          ggsave(paste0(workPath,"/result/pdf/",n,' ',m," forest_plot.pdf"))
-          #funnel
-          mr_funnel_plot(res_single)
-          ggsave(paste0(workPath,"/result/pdf/",n,' ',m," funnel_plot.pdf"))
-        }
-      }
-      #select results (save if one is significant)
+      #挑选结果（其一显著则保存）
       pval=or$pval
       if(length(pval)>1){
         for(p in pval)
           if(p<0.05){
-            #or writes to he, leaving only ivw
-            if(dim(he)[1]>1&he[2,]$method==ivw){
-              or[,15]=he[he$method==ivw,]$Q_pval
-            }else{
-              or[,15]=he[1,]$Q_pval
-            }
-            colnames(or)[15]="he"
-            #or write to ple
-            or[,16]=ple[1,7]
-            colnames(or)[16]="ple"
-            or[,17]=Ff(exposure_dat)$fm
-            colnames(or)[17]="F"
-            #resultTable: Summarize five methods, one of which is significant
+            #resultTable汇总五种方法其一显著
             resultTable=rbind(resultTable,or)
-            #resultTable_ivw: Further sensitivity checks and IVW methods only
+            #resultTable_ivw进一步进行敏感性校验且只含ivw方法
             if(dim(or[or$method==ivw,])[1]>0&or[or$method==ivw,]$pval<0.05&length(ple$pval)>0){
-              if(ple[1,]$pval>0.05){
-                if(length(he$method)==2&he[2,]$method==ivw&he[2,]$Q_pval>0.05){
-                  resultTable_ivw=rbind(resultTable_ivw,or[or$method==ivw,])
-                }else if(length(he$method)==1&he[1,]$method==ivw&he[1,]$Q_pval>0.05){
-                  resultTable_ivw=rbind(resultTable_ivw,or[or$method==ivw,])
+              if(!is.na(ple[1,]$pval)){
+                if(ple[1,]$pval>0.05){
+                  if(length(he$method)==2&he[2,]$method==ivw&he[2,]$Q_pval>0.05){
+                    resultTable_ivw=rbind(resultTable_ivw,or[or$method==ivw,])
+                  }else if(length(he$method)==1&he[1,]$method==ivw&he[1,]$Q_pval>0.05){
+                    resultTable_ivw=rbind(resultTable_ivw,or[or$method==ivw,])
+                  }
                 }
               }
             }
@@ -248,7 +304,7 @@ for(k in k_temp:length_exporsure_path){
     j_temp=1
   }
   i_temp=1
-  #save
+  #保存
   if(length(resultTable)!=0){
     write.xlsx(resultTable,paste(workPath,'/result/result.xlsx',sep=""), sheetName=strsplit(sheet_name,"\\.",fixed = FALSE)[[1]][1],append=TRUE,row.names=FALSE) 
     if(length(resultTable_ivw)!=0){
@@ -257,6 +313,15 @@ for(k in k_temp:length_exporsure_path){
     print(paste('file:',sheet_name,' saved '))
   }else{
     print(paste('file:',sheet_name,' length 0'))
+  }
+}
+write.xlsx(allResultTable,paste(workPath,'/result/allResult.xlsx',sep=""), sheetName="all",append=TRUE,row.names=FALSE) 
+if(FALSE){
+  allResultTable=data.frame()
+  getPath=list.files(path=paste(workPath,"/result/or",sep=""), pattern=NULL, all.files=FALSE, full.names=FALSE)
+  for(m in getPath){
+    readCsv=read.csv(paste(workPath,'/result/or/',m,sep=""),fill = TRUE,row.names = NULL)
+    allResultTable=rbind(allResultTable,readCsv)
   }
 }
 print('errorData exposure:')
