@@ -85,7 +85,7 @@ length_exporsure_path=length(expPath)
 allResultTable=data.frame()
 errorData_exp=c();#报错数据
 errorData_out=c();
-k_temp=5#运行进度
+k_temp=1#运行进度
 i_temp=1
 j_temp=1
 #执行长循环时报错中断，重新执行k循环可接续（环境未清空）
