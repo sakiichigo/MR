@@ -11,7 +11,7 @@ from hashlib import md5
 #筛选过程，对获取的excel结果表填充人口、样本量、nsps、年份信息
 
 # change excelUrl
-excelUrl="C:/Users/user/Desktop/test1.xlsx"
+excelUrl="C:/Users/user/Desktop/test3.xlsx"
 
 # get population,sample_size,nsp,year
 def getInfomation(id):
@@ -102,26 +102,45 @@ for i in range(0,len(wb.worksheets),1):
         outcome=sheet.cell(row=j, column=2).value
         outcome_en = sheet.cell(row=j, column=3).value
         exposure_en = sheet.cell(row=j, column=4).value
-        if(exposure==None or outcome==None):
+        exposure_zh = None
+        outcome_zh = None
+        inf_outcome = None
+        inf_exposure = None
+        if(exposure==None and outcome==None):
             continue
         if(exposure!=sheet.cell(row=j-1, column=1).value):
-            exposure_zh=baidu_api(exposure_en.split("||")[0].replace("_"," ").replace("-"," "),from_lang, to_lang)
-            inf_exposure = getInfomation(exposure)
+            if (exposure_en != None):
+                exposure_zh=baidu_api(exposure_en.split("||")[0].replace("_"," ").replace("-"," "),from_lang, to_lang)
+            if (exposure != None):
+                inf_exposure = getInfomation(exposure)
         if(outcome!=sheet.cell(row=j-1, column=2).value):
-            outcome_zh = baidu_api(outcome_en.split("||")[0].replace("_"," ").replace("-"," "), from_lang, to_lang)
-            inf_outcome = getInfomation(outcome)
-        population_exposure=inf_exposure[0]
-        population_outcome=inf_outcome[0]
-        print("exposure|outcome population :"+population_exposure+"|"+population_outcome)
+            if (outcome_en != None):
+                outcome_zh = baidu_api(outcome_en.split("||")[0].replace("_"," ").replace("-"," "), from_lang, to_lang)
+            if (outcome != None):
+                inf_outcome = getInfomation(outcome)
+
         #population,sample_size,nsp,year,pmid,consortium
-        if(population_exposure==population_outcome):
-            sheet.cell(row=j, column=17,value=population_exposure)
-        sheet.cell(row=j, column=18, value=str(inf_exposure[1])+"|"+inf_outcome[1])
-        sheet.cell(row=j, column=19, value=str(inf_exposure[2])+"|"+inf_outcome[2])
-        sheet.cell(row=j, column=20, value=str(inf_exposure[3]) + "|" + inf_outcome[3])
-        sheet.cell(row=j, column=21, value=exposure_zh)
-        sheet.cell(row=j, column=22, value=outcome_zh)
-        sheet.cell(row=j, column=23, value=str(inf_exposure[4])+"|"+inf_outcome[4])
-        sheet.cell(row=j, column=24, value=str(inf_exposure[5])+"|"+inf_outcome[5])
+        if(inf_outcome!=None and inf_exposure!= None):
+            print("exposure|outcome population :" + inf_exposure[0] + "|" + inf_outcome[0])
+            if (inf_exposure[0] == inf_outcome[0]):
+                sheet.cell(row=j, column=17, value=inf_exposure[0])
+            sheet.cell(row=j, column=18, value=str(inf_exposure[1]) + "|" + inf_outcome[1])
+            sheet.cell(row=j, column=19, value=str(inf_exposure[2]) + "|" + inf_outcome[2])
+            sheet.cell(row=j, column=20, value=str(inf_exposure[3]) + "|" + inf_outcome[3])
+            sheet.cell(row=j, column=21, value=exposure_zh)
+            sheet.cell(row=j, column=22, value=outcome_zh)
+            sheet.cell(row=j, column=23, value=str(inf_exposure[4]) + "|" + inf_outcome[4])
+            sheet.cell(row=j, column=24, value=str(inf_exposure[5]) + "|" + inf_outcome[5])
+        elif(inf_exposure!= None):
+            print("exposure population :" + inf_exposure[0])
+            sheet.cell(row=j, column=17, value=inf_exposure[0])
+            sheet.cell(row=j, column=18, value=str(inf_exposure[1]))
+            sheet.cell(row=j, column=19, value=str(inf_exposure[2]))
+            sheet.cell(row=j, column=20, value=str(inf_exposure[3]))
+            sheet.cell(row=j, column=21, value=exposure_zh)
+            sheet.cell(row=j, column=22, value=outcome_zh)
+            sheet.cell(row=j, column=23, value=str(inf_exposure[4]))
+            sheet.cell(row=j, column=24, value=str(inf_exposure[5]))
+
     wb.save(excelUrl)
     print(wb.worksheets[i].title+" saved")
