@@ -85,18 +85,17 @@ def checkElement(check,row,column):
 
 # modify xlsx
 wb = op.load_workbook(excelUrl)
+startIndex=17
 for i in range(0,len(wb.worksheets),1):
     sheet = wb.worksheets[i]
-    #if(sheet.cell(row=1, column=17).value!=None):
-     #   continue
-    checkElement('population', 1, 17)
-    checkElement('sample_size', 1, 18)
-    checkElement('number_of_snps', 1, 19)
-    checkElement('year', 1, 20)
-    checkElement('exposure_zh', 1, 21)
-    checkElement('outcome_zh', 1, 22)
-    checkElement('pmid', 1, 23)
-    checkElement('Consortium', 1, 24)
+    checkElement('population', 1, startIndex)
+    checkElement('sample_size', 1, startIndex+1)
+    checkElement('number_of_snps', 1, startIndex+2)
+    checkElement('year', 1, startIndex+3)
+    checkElement('exposure_zh', 1, startIndex+4)
+    checkElement('outcome_zh', 1, startIndex+5)
+    checkElement('pmid', 1, startIndex+6)
+    checkElement('Consortium', 1, startIndex+7)
     for j in range(2,sheet.max_row+1,1):
         exposure=sheet.cell(row=j, column=1).value
         outcome=sheet.cell(row=j, column=2).value
@@ -123,24 +122,24 @@ for i in range(0,len(wb.worksheets),1):
         if(inf_outcome!=None and inf_exposure!= None):
             print("exposure|outcome population :" + inf_exposure[0] + "|" + inf_outcome[0])
             if (inf_exposure[0] == inf_outcome[0]):
-                sheet.cell(row=j, column=17, value=inf_exposure[0])
-            sheet.cell(row=j, column=18, value=str(inf_exposure[1]) + "|" + inf_outcome[1])
-            sheet.cell(row=j, column=19, value=str(inf_exposure[2]) + "|" + inf_outcome[2])
-            sheet.cell(row=j, column=20, value=str(inf_exposure[3]) + "|" + inf_outcome[3])
-            sheet.cell(row=j, column=21, value=exposure_zh)
-            sheet.cell(row=j, column=22, value=outcome_zh)
-            sheet.cell(row=j, column=23, value=str(inf_exposure[4]) + "|" + inf_outcome[4])
-            sheet.cell(row=j, column=24, value=str(inf_exposure[5]) + "|" + inf_outcome[5])
+                sheet.cell(row=j, column=startIndex, value=inf_exposure[0])
+            sheet.cell(row=j, column=startIndex+1, value=str(inf_exposure[1]) + "|" + inf_outcome[1])
+            sheet.cell(row=j, column=startIndex+2, value=str(inf_exposure[2]) + "|" + inf_outcome[2])
+            sheet.cell(row=j, column=startIndex+3, value=str(inf_exposure[3]) + "|" + inf_outcome[3])
+            sheet.cell(row=j, column=startIndex+4, value=exposure_zh)
+            sheet.cell(row=j, column=startIndex+5, value=outcome_zh)
+            sheet.cell(row=j, column=startIndex+6, value=str(inf_exposure[4]) + "|" + inf_outcome[4])
+            sheet.cell(row=j, column=startIndex+7, value=str(inf_exposure[5]) + "|" + inf_outcome[5])
         elif(inf_exposure!= None):
             print("exposure population :" + inf_exposure[0])
-            sheet.cell(row=j, column=17, value=inf_exposure[0])
-            sheet.cell(row=j, column=18, value=str(inf_exposure[1]))
-            sheet.cell(row=j, column=19, value=str(inf_exposure[2]))
-            sheet.cell(row=j, column=20, value=str(inf_exposure[3]))
-            sheet.cell(row=j, column=21, value=exposure_zh)
-            sheet.cell(row=j, column=22, value=outcome_zh)
-            sheet.cell(row=j, column=23, value=str(inf_exposure[4]))
-            sheet.cell(row=j, column=24, value=str(inf_exposure[5]))
+            sheet.cell(row=j, column=startIndex, value=inf_exposure[0])
+            sheet.cell(row=j, column=startIndex+1, value=str(inf_exposure[1]))
+            sheet.cell(row=j, column=startIndex+2, value=str(inf_exposure[2]))
+            sheet.cell(row=j, column=startIndex+3, value=str(inf_exposure[3]))
+            sheet.cell(row=j, column=startIndex+4, value=exposure_zh)
+            sheet.cell(row=j, column=startIndex+5, value=outcome_zh)
+            sheet.cell(row=j, column=startIndex+6, value=str(inf_exposure[4]))
+            sheet.cell(row=j, column=startIndex+7, value=str(inf_exposure[5]))
 
     wb.save(excelUrl)
     print(wb.worksheets[i].title+" saved")
