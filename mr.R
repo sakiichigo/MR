@@ -5,7 +5,7 @@ library(ieugwasr)
 library(MRPRESSO)
 library(RadialMR)
 #定义文件夹
-workPath="C:/Users/user/Desktop/walking pace"
+workPath="C:/Users/user/Desktop/test"
 
 #是否留存or,he,ple记录
 saveRecord=TRUE
@@ -114,7 +114,8 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
       })
       if(message_to_next == TRUE&error_to_next == TRUE)
         break
-      if(result$message=="There was an error, please contact the developers"){
+      if(result$message=="There was an error, please contact the developers"||
+         result$message=="argument is of length zero"){
         exposure_dat=NULL
         break
       }
@@ -163,7 +164,7 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
         errorData_exp=c(errorData_exp,n)
         next
       }
-      if(dim(dat)[1]==1){
+      if(dim(dat)[1]<3){
         ple<-data.frame()
         he<-data.frame()
         #res <- mr(dat)
