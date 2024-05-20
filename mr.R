@@ -9,6 +9,7 @@ workPath="C:/Users/user/Desktop/test"
 
 #是否留存or,he,ple记录
 saveRecord=TRUE
+#presso,radialMR,plot
 exportFile=FALSE
 
 #创建文件夹
@@ -164,15 +165,14 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
         errorData_exp=c(errorData_exp,n)
         next
       }
-      if(dim(dat)[1]<3){
-        ple<-data.frame()
-        he<-data.frame()
+      ple<-mr_pleiotropy_test(dat);
+      he<-mr_heterogeneity(dat);
+      if(length(ple$pval)==0){
         #res <- mr(dat)
         res <- mr(dat,method_list=c("mr_egger_regression","mr_weighted_median","mr_ivw","mr_raps_modified","mr_weighted_mode"))
         ivw="Inverse variance weighted"
+        res[is.na(res$method),]$method="Robust Adjusted Profile Score"
       }else{
-        ple<-mr_pleiotropy_test(dat);
-        he<-mr_heterogeneity(dat);
         if(he[he$method=="Inverse variance weighted",]$Q_pval<0.05){
           he=mr_heterogeneity(dat, method_list = c("mr_egger_regression", "mr_ivw_mre"))#he更改方法
           #存在异质性时随机效应ivw_mre，同时raps替换simple mode
@@ -225,38 +225,6 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
           write.csv(steiger,paste(workPath,"/result/steiger/",n,' ',m," steiger.csv",sep=""),row.names = F)
         }
         if(exportFile){
-          #敏感性校验
-          #presso
-          if(dim(dat)[1]>3){
-            presso=mr_presso(BetaOutcome ="beta.outcome", BetaExposure = "beta.exposure", SdOutcome ="se.outcome", SdExposure = "se.exposure", 
-                             OUTLIERtest = TRUE,DISTORTIONtest = TRUE, data = dat, NbDistribution = 1000,  
-                             SignifThreshold = 0.05)
-            write.csv(presso$`Main MR results`,paste(workPath,"/result/presso/",n,' ',m," Main MR results.csv",sep=""),row.names = F)
-            outliersIndices=presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`
-            if(length(outliersIndices)>=2){
-              presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`=toString(outliersIndices)
-            }
-            write.csv(presso$`MR-PRESSO results`,paste(workPath,"/result/presso/",n,' ',m," MR-PRESSO results.csv",sep=""),row.names = F)
-          }
-          #radialMR
-          if(dim(dat)[1]>1){
-            egger_radial<- egger_radial(r_input = dat, alpha = 0.05,
-                                        weights = 1, summary = TRUE)
-            write.csv(egger_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," egger_radial data.csv",sep=""),row.names =FALSE)
-            
-          }
-          if(dim(dat)[1]>5){
-            ivw_radial<- ivw_radial(r_input = dat, alpha = 0.05,
-                                    weights = 1, tol = 0.0001, summary = TRUE)
-            write.csv(ivw_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," ivw_radial data.csv",sep=""),row.names =FALSE)
-            #which(ivw_radial$data$Outliers == "Outlier") 
-            plot_radial(c(ivw_radial,egger_radial))
-            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," radialMR.pdf"))
-          }else if(dim(dat)[1]>2){
-            plot_radial(egger_radial)
-            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," radialMR.pdf"))
-          }
-          
           #可视化
           #留一
           single <- mr_leaveoneout(dat)
@@ -276,6 +244,51 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
             mr_funnel_plot(res_single)
             ggsave(paste0(workPath,"/result/pdf/",n,' ',m," funnel_plot.pdf"))
           }
+          
+          #敏感性校验
+          #presso
+          result=tryCatch({
+            if(dim(dat)[1]>3){
+              presso=mr_presso(BetaOutcome ="beta.outcome", BetaExposure = "beta.exposure", SdOutcome ="se.outcome", SdExposure = "se.exposure", 
+                               OUTLIERtest = TRUE,DISTORTIONtest = TRUE, data = dat, NbDistribution = 1000,  
+                               SignifThreshold = 0.05)
+              write.csv(presso$`Main MR results`,paste(workPath,"/result/presso/",n,' ',m," Main MR results.csv",sep=""),row.names = F)
+              outliersIndices=presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`
+              if(length(outliersIndices)>=2){
+                presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`=toString(outliersIndices)
+              }
+              write.csv(presso$`MR-PRESSO results`,paste(workPath,"/result/presso/",n,' ',m," MR-PRESSO results.csv",sep=""),row.names = F)
+            }
+          },
+          error=function(e) {
+            print(e)
+          })
+          
+          #radialMR
+          result=tryCatch({
+            if(dim(dat)[1]>1){
+              egger_radial<- egger_radial(r_input = dat, alpha = 0.05,
+                                          weights = 1, summary = TRUE)
+              write.csv(egger_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," egger_radial data.csv",sep=""),row.names =FALSE)
+              
+            }
+            if(dim(dat)[1]>5){
+              ivw_radial<- ivw_radial(r_input = dat, alpha = 0.05,
+                                      weights = 1, tol = 0.0001, summary = TRUE)
+              write.csv(ivw_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," ivw_radial data.csv",sep=""),row.names =FALSE)
+              #which(ivw_radial$data$Outliers == "Outlier") 
+              plot_radial(c(ivw_radial,egger_radial))
+              ggsave(paste0(workPath,"/result/pdf/",n,' ',m," radialMR.pdf"))
+            }else if(dim(dat)[1]>2){
+              plot_radial(egger_radial)
+              ggsave(paste0(workPath,"/result/pdf/",n,' ',m," radialMR.pdf"))
+            }
+          },
+          error=function(e) {
+            print(e)
+          })
+          
+          
         }
         
       }
@@ -288,7 +301,7 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
             resultTable=rbind(resultTable,or)
             #resultTable_ivw进一步进行敏感性校验且只含ivw方法
             if(dim(or[or$method==ivw,])[1]>0&or[or$method==ivw,]$pval<0.05&length(ple$pval)>0){
-              if(!is.na(ple[1,]$pval)){
+              if(!is.na(ple[1,]$pval)&ple){
                 if(ple[1,]$pval>0.05){
                   if(length(he$method)==2&he[2,]$method==ivw&he[2,]$Q_pval>0.05){
                     resultTable_ivw=rbind(resultTable_ivw,or[or$method==ivw,])
@@ -329,6 +342,3 @@ print('errorData exposure:')
 unique(errorData_exp)
 print('errorData outcome:')
 unique(errorData_out)
-
-
-
