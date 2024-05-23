@@ -40,7 +40,9 @@ Ff<-function(data){
   beta<-data$beta.exposure
   se<-data$se.exposure
   rr<-(2*(beta^2)*eaf*(1-eaf)) /(2*(beta^2)*eaf* (1-eaf) +2*n*eaf*(1-eaf)*se^2)
-  #rr<-beta^2/(beta^2+se^2*(data$samplesize.exposure-2))
+  if(all(is.na(rr))){
+    rr<-beta^2/(beta^2+se^2*(data$samplesize.exposure-2))
+  }
   ff<-((n-2)*rr)/(1-rr)
   mean<-mean(ff)
   li<-list(r2=mean(rr),
@@ -331,14 +333,19 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
 }
 write.xlsx(allResultTable,paste(workPath,'/result/allResult.xlsx',sep=""), sheetName="all",append=TRUE,row.names=FALSE) 
 if(FALSE){
+  #遇到报错导致循环中断可执行此部分手动生成AllResult
   allResultTable=data.frame()
   getPath=list.files(path=paste(workPath,"/result/or",sep=""), pattern=NULL, all.files=FALSE, full.names=FALSE)
   for(m in getPath){
     readCsv=read.csv(paste(workPath,'/result/or/',m,sep=""),fill = TRUE,row.names = NULL)
     allResultTable=rbind(allResultTable,readCsv)
   }
+  write.xlsx(allResultTable,paste(workPath,'/result/allResult.xlsx',sep=""), sheetName="all",append=TRUE,row.names=FALSE) 
 }
 print('errorData exposure:')
 unique(errorData_exp)
 print('errorData outcome:')
 unique(errorData_out)
+
+
+
