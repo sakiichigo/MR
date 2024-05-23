@@ -4,15 +4,16 @@ library(ggplot2)
 library(ieugwasr)
 library(MRPRESSO)
 library(RadialMR)
+
+#Part1:需要修改的部分
 #定义文件夹
 workPath="C:/Users/user/Desktop/test"
-
 #是否留存or,he,ple记录
 saveRecord=TRUE
-#presso,radialMR,plot
+#presso,radialMR,plot (开启循环变慢)
 exportFile=FALSE
 
-
+#Part2:需要添加文件部分
 #创建文件夹
 dir.create(paste(workPath,"/outcome",sep=""))#结局文件路径
 dir.create(paste(workPath,"/exposure",sep=""))#暴露文件路径
@@ -29,7 +30,7 @@ if(saveRecord){
   dir.create(paste(workPath,"/result/radialMR",sep=""))#radialMR文件路径
 }
 
-#The following one-click runs
+#Part3:一键执行部分
 
 #F-Statistics
 Ff<-function(data){
@@ -243,39 +244,43 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
         }
         if(exportFile){
           #可视化
-          #留一
-          single <- mr_leaveoneout(dat)
-          if(length(unique(single$SNP))==length(single$SNP)){
-            mr_leaveoneout_plot(single)
-            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," leaveoneout.pdf"))
-          }
-          #散点
-          mr_scatter_plot(res,dat)
-          ggsave(paste0(workPath,"/result/pdf/",n,' ',m," scatter_plot.pdf"))
-          res_single <- mr_singlesnp(dat)
-          if(length(unique(single$SNP))==length(single$SNP)){
-            #森林
-            mr_forest_plot(res_single)
-            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," forest_plot.pdf"))
-            #漏斗
-            mr_funnel_plot(res_single)
-            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," funnel_plot.pdf"))
-          }
+          result=tryCatch({
+            #留一
+            single <- mr_leaveoneout(dat)
+            if(length(unique(single$SNP))==length(single$SNP)){
+              mr_leaveoneout_plot(single)
+              ggsave(paste0(workPath,"/result/pdf/",n,' ',m," leaveoneout.pdf"))
+            }
+            #散点
+            mr_scatter_plot(res,dat)
+            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," scatter_plot.pdf"))
+            res_single <- mr_singlesnp(dat)
+            if(length(unique(single$SNP))==length(single$SNP)){
+              #森林
+              mr_forest_plot(res_single)
+              ggsave(paste0(workPath,"/result/pdf/",n,' ',m," forest_plot.pdf"))
+              #漏斗
+              mr_funnel_plot(res_single)
+              ggsave(paste0(workPath,"/result/pdf/",n,' ',m," funnel_plot.pdf"))
+            }
+          },
+          error=function(e) {
+            print(e)
+          })
+          
           
           #敏感性校验
           #presso
           result=tryCatch({
-            if(dim(dat)[1]>3){
-              presso=mr_presso(BetaOutcome ="beta.outcome", BetaExposure = "beta.exposure", SdOutcome ="se.outcome", SdExposure = "se.exposure", 
-                               OUTLIERtest = TRUE,DISTORTIONtest = TRUE, data = dat, NbDistribution = 1000,  
-                               SignifThreshold = 0.05)
-              write.csv(presso$`Main MR results`,paste(workPath,"/result/presso/",n,' ',m," Main MR results.csv",sep=""),row.names = F)
-              outliersIndices=presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`
-              if(length(outliersIndices)>=2){
-                presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`=toString(outliersIndices)
-              }
-              write.csv(presso$`MR-PRESSO results`,paste(workPath,"/result/presso/",n,' ',m," MR-PRESSO results.csv",sep=""),row.names = F)
+            presso=mr_presso(BetaOutcome ="beta.outcome", BetaExposure = "beta.exposure", SdOutcome ="se.outcome", SdExposure = "se.exposure", 
+                             OUTLIERtest = TRUE,DISTORTIONtest = TRUE, data = dat, NbDistribution = 1000,  
+                             SignifThreshold = 0.05)
+            write.csv(presso$`Main MR results`,paste(workPath,"/result/presso/",n,' ',m," Main MR results.csv",sep=""),row.names = F)
+            outliersIndices=presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`
+            if(length(outliersIndices)>=2){
+              presso$`MR-PRESSO results`$`Distortion Test`$`Outliers Indices`=toString(outliersIndices)
             }
+            write.csv(presso$`MR-PRESSO results`,paste(workPath,"/result/presso/",n,' ',m," MR-PRESSO results.csv",sep=""),row.names = F)
           },
           error=function(e) {
             print(e)
@@ -283,28 +288,19 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
           
           #radialMR
           result=tryCatch({
-            if(dim(dat)[1]>1){
-              egger_radial<- egger_radial(r_input = dat, alpha = 0.05,
-                                          weights = 1, summary = TRUE)
-              write.csv(egger_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," egger_radial data.csv",sep=""),row.names =FALSE)
-              
-            }
-            if(dim(dat)[1]>5){
-              ivw_radial<- ivw_radial(r_input = dat, alpha = 0.05,
-                                      weights = 1, tol = 0.0001, summary = TRUE)
-              write.csv(ivw_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," ivw_radial data.csv",sep=""),row.names =FALSE)
-              #which(ivw_radial$data$Outliers == "Outlier") 
-              plot_radial(c(ivw_radial,egger_radial))
-              ggsave(paste0(workPath,"/result/pdf/",n,' ',m," radialMR.pdf"))
-            }else if(dim(dat)[1]>2){
-              plot_radial(egger_radial)
-              ggsave(paste0(workPath,"/result/pdf/",n,' ',m," radialMR.pdf"))
-            }
+            egger_radial<- egger_radial(r_input = dat, alpha = 0.05,
+                                        weights = 1, summary = TRUE)
+            write.csv(egger_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," egger_radial data.csv",sep=""),row.names =FALSE)
+            ivw_radial<- ivw_radial(r_input = dat, alpha = 0.05,
+                                    weights = 1, tol = 0.0001, summary = TRUE)
+            write.csv(ivw_radial$data,paste(workPath,"/result/radialMR/",n,' ',m," ivw_radial data.csv",sep=""),row.names =FALSE)
+            #which(ivw_radial$data$Outliers == "Outlier") 
+            plot_radial(c(ivw_radial,egger_radial))
+            ggsave(paste0(workPath,"/result/pdf/",n,' ',m," radialMR.pdf"))
           },
           error=function(e) {
             print(e)
           })
-          
           
         }
         
@@ -348,8 +344,8 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
 }
 write.xlsx(allResultTable,paste(workPath,'/result/allResult.xlsx',sep=""), sheetName="all",append=TRUE,row.names=FALSE) 
 if(FALSE){
-  #遇到报错导致AllResult清空时，可执行此部分手动生成AllResult进行手动筛选     
-  allResultTable=data.frame() 
+  #遇到报错导致循环中断可执行此部分手动生成AllResult
+  allResultTable=data.frame()
   getPath=list.files(path=paste(workPath,"/result/or",sep=""), pattern=NULL, all.files=FALSE, full.names=FALSE)
   for(m in getPath){
     readCsv=read.csv(paste(workPath,'/result/or/',m,sep=""),fill = TRUE,row.names = NULL)
@@ -361,6 +357,7 @@ print('errorData exposure:')
 unique(errorData_exp)
 print('errorData outcome:')
 unique(errorData_out)
-
-
+#resultTable_ivw: 只含ivw方法并且无异质多效性汇总
+#resultTable: 方法其一显著汇总
+#allResultTable:  所有产生数据的汇总
 
