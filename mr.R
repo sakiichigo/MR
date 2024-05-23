@@ -1,6 +1,6 @@
 library(TwoSampleMR)
 library(xlsx)
-library(ggplot2)
+library(ggplot2)   
 library(ieugwasr)
 library(MRPRESSO)
 library(RadialMR)
@@ -10,7 +10,7 @@ library(RadialMR)
 workPath="C:/Users/user/Desktop/test"
 #是否留存or,he,ple记录
 saveRecord=TRUE
-#presso,radialMR,plot (开启循环变慢)
+#presso,radialMR,plot 建议少数据时开启，此步骤会花较长时间
 exportFile=FALSE
 
 #Part2:需要添加文件部分
