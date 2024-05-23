@@ -12,6 +12,7 @@ saveRecord=TRUE
 #presso,radialMR,plot
 exportFile=FALSE
 
+
 #创建文件夹
 dir.create(paste(workPath,"/outcome",sep=""))#结局文件路径
 dir.create(paste(workPath,"/exposure",sep=""))#暴露文件路径
@@ -124,7 +125,7 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
       }
     }
     #空数据
-    if(!length(exposure_dat) ){
+    if(!length(exposure_dat)||dim(exposure_dat)[1]==0 ){
       errorData_exp=c(errorData_exp,n)
       next
     }
@@ -157,12 +158,12 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
         }
       }
       #空数据
-      if(!length(outcome_dat) ){
+      if(!length(outcome_dat)||dim(outcome_dat)[1]==0 ){
         errorData_out=c(errorData_out,m)
         next
       }
       dat <- harmonise_data(exposure_dat,outcome_dat)
-      if(!length(dat) ){
+      if(!length(dat)||dim(dat)[1]==0 ){
         errorData_out=c(errorData_out,m)
         errorData_exp=c(errorData_exp,n)
         next
@@ -213,6 +214,20 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
       colnames(or)[16]="ple"
       or[,17]=Ff(exposure_dat)$fm
       colnames(or)[17]="F"
+      gwasinfo_exp=ieugwasr:: gwasinfo(n)
+      gwasinfo_out=ieugwasr:: gwasinfo(m)
+      or[,18]=paste0(gwasinfo_exp$population,"|",gwasinfo_out$population)
+      colnames(or)[18]="population"
+      or[,19]=paste0(gwasinfo_exp$sample_size,"|",gwasinfo_out$sample_size)
+      colnames(or)[19]="sample_size"
+      or[,20]=paste0(gwasinfo_exp$nsnp,"|",gwasinfo_out$nsnp)
+      colnames(or)[20]="nsnp"
+      or[,21]=paste0(gwasinfo_exp$year,"|",gwasinfo_out$year)
+      colnames(or)[21]="year"
+      or[,22]=paste0(gwasinfo_exp$pmid,"|",gwasinfo_out$pmid)
+      colnames(or)[22]="pmid"
+      or[,23]=paste0(gwasinfo_exp$consortium,"|",gwasinfo_out$consortium)
+      colnames(or)[23]="consortium"
       allResultTable=rbind(allResultTable,or)
       
       #留存记录
@@ -333,8 +348,8 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
 }
 write.xlsx(allResultTable,paste(workPath,'/result/allResult.xlsx',sep=""), sheetName="all",append=TRUE,row.names=FALSE) 
 if(FALSE){
-  #遇到报错导致循环中断可执行此部分手动生成AllResult
-  allResultTable=data.frame()
+  #遇到报错导致AllResult清空时，可执行此部分手动生成AllResult进行手动筛选     
+  allResultTable=data.frame() 
   getPath=list.files(path=paste(workPath,"/result/or",sep=""), pattern=NULL, all.files=FALSE, full.names=FALSE)
   for(m in getPath){
     readCsv=read.csv(paste(workPath,'/result/or/',m,sep=""),fill = TRUE,row.names = NULL)
