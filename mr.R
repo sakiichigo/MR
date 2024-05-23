@@ -8,9 +8,9 @@ library(RadialMR)
 #Part1:需要修改的部分
 #定义文件夹
 workPath="C:/Users/user/Desktop/test"
-#是否留存or,he,ple记录
+#导出or,he,ple文件
 saveRecord=TRUE
-#presso,radialMR,plot 建议少数据时开启，此步骤会花较长时间
+#导出presso,radialMR,plot敏感分析文件，建议少数据时开启，此步骤会花较长时间        
 exportFile=FALSE
 
 #Part2:需要添加文件部分
