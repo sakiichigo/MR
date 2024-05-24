@@ -169,9 +169,10 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
         errorData_exp=c(errorData_exp,n)
         next
       }
+      #异质性多效性
       ple<-mr_pleiotropy_test(dat);
       he<-mr_heterogeneity(dat);
-      if(length(ple$pval)==0){
+      if(length(ple$pval)==0){#可能出现没有足够snp
         #res <- mr(dat)
         res <- mr(dat,method_list=c("mr_egger_regression","mr_weighted_median","mr_ivw","mr_raps_modified","mr_weighted_mode"))
         ivw="Inverse variance weighted"
@@ -215,6 +216,7 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
       colnames(or)[16]="ple"
       or[,17]=Ff(exposure_dat)$fm
       colnames(or)[17]="F"
+      #写入gwas信息
       gwasinfo_exp=ieugwasr:: gwasinfo(n)
       gwasinfo_out=ieugwasr:: gwasinfo(m)
       or[,18]=paste0(gwasinfo_exp$population,"|",gwasinfo_out$population)
@@ -222,7 +224,7 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
       or[,19]=paste0(gwasinfo_exp$sample_size,"|",gwasinfo_out$sample_size)
       colnames(or)[19]="sample_size"
       or[,20]=paste0(gwasinfo_exp$nsnp,"|",gwasinfo_out$nsnp)
-      colnames(or)[20]="nsnp"
+      colnames(or)[20]="nsnps"
       or[,21]=paste0(gwasinfo_exp$year,"|",gwasinfo_out$year)
       colnames(or)[21]="year"
       or[,22]=paste0(gwasinfo_exp$pmid,"|",gwasinfo_out$pmid)
@@ -360,4 +362,3 @@ unique(errorData_out)
 #resultTable_ivw: 只含ivw方法并且无异质多效性汇总
 #resultTable: 方法其一显著汇总
 #allResultTable:  所有产生数据的汇总
-
