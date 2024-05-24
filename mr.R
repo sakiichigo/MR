@@ -8,9 +8,9 @@ library(RadialMR)
 #Part1:需要修改的部分
 #定义文件夹
 workPath="C:/Users/user/Desktop/demo"
-#是否留存or,he,ple记录
+#导出or,he,ple记录
 saveRecord=TRUE
-#presso,radialMR,plot (开启循环变慢)
+#导出presso,radialMR,plot文件 (开启循环变慢)
 exportFile=FALSE
 
 #Part2:需要添加文件部分
@@ -90,10 +90,10 @@ length_exporsure_path=length(expPath)
 allResultTable=data.frame()
 errorData_exp=c();#报错数据
 errorData_out=c();
-k_temp=1#运行进度
+k_temp=1#运行进度，每层循环从外到内k>i>j (exposure_file>exposure_Id>outcome_Id)
 i_temp=1
 j_temp=1
-#执行长循环时报错中断，重新执行k循环可接续（环境未清空）
+#选择运行位置: 执行长循环时报错中断，将j_temp替换成j(或者跳过这一步j+1)，重新执行下面的循环可接续运行(k,i同理)
 for(k in k_temp:length_exporsure_path){#读取暴露id
   k_temp=k
   sheet_name=expPath[k]
@@ -133,9 +133,9 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
     #结局变量
     for(j in j_temp:length_outcome){
       print(as.POSIXlt(Sys.time()))
-      print(paste('exposure file:',sheet_name,'   process:',k,'/',length_exporsure_path))
-      print(paste('id.exposure:',n,'   process:',i,'/',length_exporsure))
-      print(paste('id.outcome:',m,'   process:',j,'/',length_outcome))
+      print(paste('exposure file(k):',sheet_name,'   process:',k,'/',length_exporsure_path))
+      print(paste('id.exposure(i):',n,'   process:',i,'/',length_exporsure))
+      print(paste('id.outcome(j):',m,'   process:',j,'/',length_outcome))
       j_temp=j
       m=outcomeId[j]
       while(TRUE){
