@@ -1,16 +1,16 @@
 library(TwoSampleMR)
 library(xlsx)
-library(ggplot2)   
+library(ggplot2)
 library(ieugwasr)
 library(MRPRESSO)
 library(RadialMR)
 
 #Part1:需要修改的部分
 #定义文件夹
-workPath="C:/Users/user/Desktop/test"
-#导出or,he,ple文件
+workPath="C:/Users/user/Desktop/demo"
+#是否留存or,he,ple记录
 saveRecord=TRUE
-#导出presso,radialMR,plot敏感分析文件，建议少数据时开启，此步骤会花较长时间        
+#presso,radialMR,plot (开启循环变慢)
 exportFile=FALSE
 
 #Part2:需要添加文件部分
@@ -314,7 +314,7 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
             resultTable=rbind(resultTable,or)
             #resultTable_ivw进一步进行敏感性校验且只含ivw方法
             if(dim(or[or$method==ivw,])[1]>0&or[or$method==ivw,]$pval<0.05&length(ple$pval)>0){
-              if(!is.na(ple[1,]$pval)&ple){
+              if(!is.na(ple[1,]$pval)){
                 if(ple[1,]$pval>0.05){
                   if(length(he$method)==2&he[2,]$method==ivw&he[2,]$Q_pval>0.05){
                     resultTable_ivw=rbind(resultTable_ivw,or[or$method==ivw,])
