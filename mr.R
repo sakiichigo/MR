@@ -84,9 +84,10 @@ for(m in outPath){
 }
 outcomeId=unique(outcomeId)
 length_outcome=length(outcomeId)
-#暴露文件+分析+保存
+#暴露文件
 expPath=list.files(path=paste(workPath,"/exposure",sep=""), pattern=NULL, all.files=FALSE, full.names=FALSE)
 length_exporsure_path=length(expPath)
+#开始分析
 allResultTable=data.frame()
 errorData_exp=c();#报错数据
 errorData_out=c();
@@ -214,11 +215,19 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
         or[,16]=ple[1,7]
       }
       colnames(or)[16]="ple"
-      or[,17]=Ff(exposure_dat)$fm
-      colnames(or)[17]="F"
       #写入gwas信息
       gwasinfo_exp=ieugwasr:: gwasinfo(n)
       gwasinfo_out=ieugwasr:: gwasinfo(m)
+      if(is.null(gwasinfo_exp$sample_size)){
+        gwasinfo_exp$sample_size=gwasinfo_exp$ncase+gwasinfo_exp$ncontrol
+        exposure_dat$samplesize.exposure=gwasinfo_exp$sample_size
+      }
+      if(is.null(gwasinfo_out$sample_size)){
+        gwasinfo_out$sample_size=gwasinfo_out$ncase+gwasinfo_out$ncontrol
+        outcome_dat$samplesize.outcome=gwasinfo_out$sample_size
+      }
+      or[,17]=Ff(exposure_dat)$fm
+      colnames(or)[17]="F"
       or[,18]=paste0(gwasinfo_exp$population,"|",gwasinfo_out$population)
       colnames(or)[18]="population"
       or[,19]=paste0(gwasinfo_exp$sample_size,"|",gwasinfo_out$sample_size)
@@ -362,3 +371,4 @@ unique(errorData_out)
 #resultTable_ivw: 只含ivw方法并且无异质多效性汇总
 #resultTable: 方法其一显著汇总
 #allResultTable:  所有产生数据的汇总
+
