@@ -4,6 +4,7 @@ library(ggplot2)
 library(ieugwasr)
 library(MRPRESSO)
 library(RadialMR)
+options(ieugwasr_api = 'https://gwas-api.mrcieu.ac.uk/')
 
 #Part1:需要修改的部分
 #定义文件夹
@@ -173,7 +174,7 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
       #异质性多效性
       ple<-mr_pleiotropy_test(dat);
       he<-mr_heterogeneity(dat);
-      if(length(ple$pval)==0){#可能出现没有足够snp
+      if(length(ple$pval)==0||length(he$Q_pval)==0){#可能出现没有足够snp
         #res <- mr(dat)
         res <- mr(dat,method_list=c("mr_egger_regression","mr_weighted_median","mr_ivw","mr_raps_modified","mr_weighted_mode"))
         ivw="Inverse variance weighted"
