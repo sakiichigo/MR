@@ -87,7 +87,7 @@ outcomeId=unique(outcomeId)
 length_outcome=length(outcomeId)
 #暴露文件
 expPath=list.files(path=paste(workPath,"/exposure",sep=""), pattern=NULL, all.files=FALSE, full.names=FALSE)
-length_exporsure_path=length(expPath)
+length_exposure_path=length(expPath)
 #开始分析
 allResultTable=data.frame()
 errorData_exp=c();#报错数据
@@ -96,14 +96,14 @@ k_temp=1#运行进度，每层循环从外到内k>i>j (exposure_file>exposure_Id
 i_temp=1
 j_temp=1
 #选择运行位置: 执行长循环时报错中断，将j_temp替换成j(或者跳过这一步j+1)，重新执行下面的循环可接续运行(k,i同理)
-for(k in k_temp:length_exporsure_path){#读取暴露id
+for(k in k_temp:length_exposure_path){#读取暴露id
   k_temp=k
   sheet_name=expPath[k]
   exposureId=read.table(paste(workPath,'/exposure/',sheet_name,sep=""),fill = TRUE,row.names = NULL)[,c(1)]
-  length_exporsure=length(exposureId)
+  length_exposure=length(exposureId)
   resultTable=data.frame()
   resultTable_ivw=data.frame()
-  for(i in i_temp:length_exporsure){#读取暴露
+  for(i in i_temp:length_exposure){#读取暴露
     i_temp=i
     n=exposureId[i]
     while(TRUE){
@@ -135,8 +135,8 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
     #结局变量
     for(j in j_temp:length_outcome){
       print(as.POSIXlt(Sys.time()))
-      print(paste('exposure file(k):',sheet_name,'   process:',k,'/',length_exporsure_path))
-      print(paste('id.exposure(i):',n,'   process:',i,'/',length_exporsure))
+      print(paste('exposure file(k):',sheet_name,'   process:',k,'/',length_exposure_path))
+      print(paste('id.exposure(i):',n,'   process:',i,'/',length_exposure))
       print(paste('id.outcome(j):',m,'   process:',j,'/',length_outcome))
       j_temp=j
       m=outcomeId[j]
@@ -220,12 +220,16 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
       gwasinfo_exp=ieugwasr:: gwasinfo(n)
       gwasinfo_out=ieugwasr:: gwasinfo(m)
       if(is.null(gwasinfo_exp$sample_size)){
-        gwasinfo_exp$sample_size=gwasinfo_exp$ncase+gwasinfo_exp$ncontrol
-        exposure_dat$samplesize.exposure=gwasinfo_exp$sample_size
+        if(!is.null(gwasinfo_exp$ncase)&!is.null(gwasinfo_exp$ncontrol)){
+          gwasinfo_exp$sample_size=gwasinfo_exp$ncase+gwasinfo_exp$ncontrol
+          exposure_dat$samplesize.exposure=gwasinfo_exp$sample_size
+        }
       }
       if(is.null(gwasinfo_out$sample_size)){
-        gwasinfo_out$sample_size=gwasinfo_out$ncase+gwasinfo_out$ncontrol
-        outcome_dat$samplesize.outcome=gwasinfo_out$sample_size
+        if(!is.null(gwasinfo_out$ncase)&!is.null(gwasinfo_out$ncontrol)){
+          gwasinfo_out$sample_size=gwasinfo_out$ncase+gwasinfo_out$ncontrol
+          outcome_dat$samplesize.outcome=gwasinfo_out$sample_size
+        }
       }
       or[,17]=Ff(exposure_dat)$fm
       colnames(or)[17]="F"
@@ -248,11 +252,13 @@ for(k in k_temp:length_exporsure_path){#读取暴露id
         write.csv(or,paste(workPath,"/result/or/",n,' ',m," or.csv",sep=""),row.names = F)
         write.csv(ple,paste(workPath,"/result/ple/",n,' ',m," ple.csv",sep=""),row.names = F)
         write.csv(he,paste(workPath,"/result/he/",n,' ',m," he.csv",sep=""),row.names = F)
-        if((!is.na(dat$samplesize.exposure[1]))&(!is.na(dat$samplesize.outcome[1]))){
-          direct=directionality_test(dat)#反向因果
-          steiger<-steiger_filtering(dat)#Steiger过滤
-          write.csv(direct,paste(workPath,"/result/direct/",n,' ',m," direct.csv",sep=""),row.names = F)
-          write.csv(steiger,paste(workPath,"/result/steiger/",n,' ',m," steiger.csv",sep=""),row.names = F)
+        if((!is.null(dat$samplesize.exposure[1]))&(!is.null(dat$samplesize.outcome[1]))){
+          if((!is.na(dat$samplesize.exposure[1]))&(!is.na(dat$samplesize.outcome[1]))){
+            direct=directionality_test(dat)#反向因果
+            steiger<-steiger_filtering(dat)#Steiger过滤
+            write.csv(direct,paste(workPath,"/result/direct/",n,' ',m," direct.csv",sep=""),row.names = F)
+            write.csv(steiger,paste(workPath,"/result/steiger/",n,' ',m," steiger.csv",sep=""),row.names = F)
+          }
         }
         if(exportFile){
           #可视化
