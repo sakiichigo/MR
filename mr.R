@@ -178,7 +178,6 @@ for(k in k_temp:length_exposure_path){#读取暴露id
         #res <- mr(dat)
         res <- mr(dat,method_list=c("mr_egger_regression","mr_weighted_median","mr_ivw","mr_raps_modified","mr_weighted_mode"))
         ivw="Inverse variance weighted"
-        res[is.na(res$method),]$method="Robust Adjusted Profile Score"
       }else{
         if(he[he$method=="Inverse variance weighted",]$Q_pval<0.05){
           he=mr_heterogeneity(dat, method_list = c("mr_egger_regression", "mr_ivw_mre"))#he更改方法
@@ -190,13 +189,13 @@ for(k in k_temp:length_exposure_path){#读取暴露id
           res <- mr(dat,method_list=c("mr_egger_regression","mr_weighted_median","mr_ivw","mr_raps_modified","mr_weighted_mode"))
           ivw="Inverse variance weighted"
         }
-        res[is.na(res$method),]$method="Robust Adjusted Profile Score"
       }
       #mr_method_list()#列出方法
       #空数据
       if(length(res)==0){
         next
       }
+      res[is.na(res$method),]$method="Robust Adjusted Profile Score"
       or<-generate_odds_ratios(res);
       #or写入HE，只保留IVW
       if(length(he)==0){
