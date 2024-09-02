@@ -5,8 +5,8 @@ import openpyxl as op
 import os
 
 # change trait and path
-trait="smell"
-path="C:/Users/user/Desktop/"
+trait="taste"
+path="C:/Users/user/Desktop/idp/"
 isGwasInfo=True
 
 # params
@@ -29,7 +29,6 @@ def getRows(url,sheet,row):
         print("no available data")
     else:
         if(isGwasInfo):
-
             for result in results:
                 data = result.string
                 print(data)
@@ -38,7 +37,6 @@ def getRows(url,sheet,row):
                 for j in range(0, len(info), 1):
                     sheet.cell(row=row, column=j+2, value=info[j])
                 row += 1
-
         else:
             for result in results:
                 data = result.string
@@ -114,14 +112,14 @@ else:
     sheet.cell(row=1, column=5, value="year")
     row = 2
 if (len(pages) <= 2):
-    getRows(url,sheet,row)
+    getRows(url, sheet, row)
 else:
     maxPage = pages[len(pages) - 2].contents[0].replace("\n", "").replace(" ", "")
     maxPage = int(maxPage)
-
     for pageCout in range(1, maxPage + 1, 1):
         urlpage = url + '&page=' + str(pageCout)
-        getRows(urlpage,sheet,row)
+        getRows(urlpage, sheet, row)
         row = sheet.max_row + 1
-    wb.save(path + trait + '.xlsx')
+wb.save(path + trait + '.xlsx')
+wb.close()
 print(trait + " created")
