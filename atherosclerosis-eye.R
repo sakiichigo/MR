@@ -1,0 +1,538 @@
+library(TwoSampleMR)
+library(xlsx)
+library(ggplot2)
+library(ieugwasr)
+library(MRPRESSO)
+library(RadialMR)
+##options(ieugwasr_api = 'https://gwas-api.mrcieu.ac.uk/')
+options(ieugwasr_api = 'https://api.opengwas.io/api/')
+###1.读取数据
+#方法
+if(TRUE){
+  #F-Statistics
+  Ff<-function(data){
+    maf<-ifelse(data$eaf.exposure < 0.5, 
+                data$eaf.exposure,
+                1-data$eaf.exposure)
+    n<-data$samplesize.exposure
+    eaf<-data$eaf.exposure
+    beta<-data$beta.exposure
+    se<-data$se.exposure
+    rr<-(2*(beta^2)*eaf*(1-eaf)) /(2*(beta^2)*eaf* (1-eaf) +2*n*eaf*(1-eaf)*se^2)
+    if(all(is.na(rr))){
+      rr<-beta^2/(beta^2+se^2*(data$samplesize.exposure-2))
+    }
+    ff<-((n-2)*rr)/(1-rr)
+    mean<-mean(ff)
+    li<-list(r2=mean(rr),
+             #fs=ff,
+             fm=mean)
+    return(li)
+  }
+  
+  #mr_raps_modified
+  mr_raps_modified <- function (b_exp, b_out, se_exp, se_out,parameters) 
+  {
+    out <- try(suppressMessages(mr.raps::mr.raps(b_exp, b_out, se_exp, se_out,
+                                                 over.dispersion = parameters$over.dispersion, 
+                                                 loss.function = parameters$loss.function,
+                                                 diagnosis = FALSE)),silent = T)
+    # The estimated overdispersion parameter is very small. Consider using the simple model without overdispersion
+    # When encountering such warning, change the over.dispersion as 'FASLE'
+    if ('try-error' %in% class(out))
+    {
+      output = list(b = NA, se = NA, pval = NA, nsnp = NA)
+    }
+    else
+    {
+      output = list(b = out$beta.hat, se = out$beta.se, 
+                    pval = pnorm(-abs(out$beta.hat/out$beta.se)) * 2, nsnp = length(b_exp))
+    }
+    return(output)
+  }
+  
+  #eaf add
+  snp_add_eaf <- function(dat, build = "37", pop = "EUR")
+  {
+    stopifnot(build %in% c("37","38"))
+    stopifnot("SNP" %in% names(dat))
+    
+    # Create and get a url
+    server <- ifelse(build == "37","http://grch37.rest.ensembl.org","http://rest.ensembl.org")
+    pop <- paste0("1000GENOMES:phase_3:",pop)
+    
+    snp_reverse_base <- function(x)
+    {
+      x <- stringr::str_to_upper(x)
+      stopifnot(x %in% c("A","T","C","G"))
+      switch(x,"A"="T","T"="A","C"="G","G"="C")
+    }
+    
+    res_tab <- lapply(1:nrow(dat), function(i)
+    {
+      tryCatch({
+        
+        print(paste0("seaching for No.", i, " SNP"))
+        dat_i <- dat[i,]
+        
+        ext <- paste0("/variation/Homo_sapiens/",dat_i$SNP, "?content-type=application/json;pops=1")
+        url <- paste(server, ext, sep = "")
+        res <- httr::GET(url)
+        
+        # Converts http errors to R errors or warnings
+        httr::stop_for_status(res)
+        
+        # Convert R objects from JSON
+        res <- httr::content(res)
+        res_pop <- jsonlite::fromJSON(jsonlite::toJSON(res))$populations
+        
+        # for no eaf
+        if(length(res_pop)>0){
+          # Filter query results based on population set
+          res_pop <- try(res_pop[res_pop$population == pop,])
+          if("try-error" %in% class(res_pop))
+          {
+            print(paste0("There is not information for population ",pop))
+            queried_effect_allele <- "NR"
+            queried_other_allele <- "NR"
+            queried_eaf <- -1
+          }
+          else
+          {
+            if(nrow(res_pop)==0)
+            {
+              print(paste0("There is not information for population ",pop))
+              queried_effect_allele <- "NR"
+              queried_other_allele <- "NR"
+              queried_eaf <- -1
+            }
+            else
+            {
+              queried_effect_allele <- res_pop[1,"allele"][[1]]
+              queried_other_allele <- res_pop[2,"allele"][[1]]
+              queried_eaf <- res_pop[1,"frequency"][[1]]    
+            }
+          }
+          
+          effect_allele <- ifelse("effect_allele.exposure" %in% names(dat),
+                                  dat_i$effect_allele.exposure,
+                                  dat_i$effect_allele)
+          
+          other_allele <- ifelse("effect_allele.exposure" %in% names(dat),
+                                 dat_i$other_allele.exposure,
+                                 dat_i$other_allele)
+          
+          if("effect_allele.exposure" %in% names(dat))
+          {
+            name_output <- unique(c(names(dat), "eaf.exposure","reliability.exposure"))
+          }
+          else
+          {
+            name_output <- unique(c(names(dat), "eaf","reliability.exposure"))
+          }
+          
+          len_effect_allele <- nchar(effect_allele)
+          len_other_allele <- nchar(other_allele)
+          
+          if(len_effect_allele==1&len_other_allele==1)
+          {
+            if((queried_effect_allele==effect_allele & queried_other_allele==other_allele)|
+               (queried_effect_allele==other_allele & queried_other_allele==effect_allele))
+            {
+              dat_i$eaf.exposure <- ifelse(effect_allele == queried_effect_allele,
+                                           queried_eaf,
+                                           1-queried_eaf)
+              dat_i$eaf <- dat_i$eaf.exposure 
+              dat_i$reliability.exposure <- "high"
+            }
+            else
+            {
+              r_queried_effect_allele <- snp_reverse_base(queried_effect_allele)
+              r_queried_other_allele <- snp_reverse_base(queried_other_allele)
+              if((r_queried_effect_allele==effect_allele & r_queried_other_allele==other_allele)|
+                 (r_queried_effect_allele==other_allele & r_queried_other_allele==effect_allele))
+              {
+                dat_i$eaf.exposure <- ifelse(effect_allele == r_queried_effect_allele,
+                                             queried_eaf,
+                                             1-queried_eaf)
+                dat_i$eaf <- dat_i$eaf.exposure 
+                dat_i$reliability.exposure <- "high"
+              }
+              else
+              {
+                dat_i$eaf.exposure <- ifelse(effect_allele == queried_effect_allele,
+                                             queried_eaf,
+                                             1-queried_eaf)
+                dat_i$eaf <- dat_i$eaf.exposure 
+                dat_i$reliability.exposure <- "low"
+              }
+            }
+          }
+          
+          else
+          {
+            # To identify the potential DEL/ INS
+            short_allele <- ifelse(len_effect_allele==1,
+                                   effect_allele,
+                                   other_allele)
+            short_allele_eaf <- ifelse(short_allele == queried_effect_allele, 
+                                       queried_eaf, 
+                                       1-queried_eaf)
+            dat_i$eaf.exposure <- ifelse(effect_allele == short_allele,
+                                         short_allele_eaf,
+                                         1-short_allele_eaf)
+            dat_i$eaf <- dat_i$eaf.exposure 
+            dat_i$reliability.exposure <- "low"
+          }
+          
+          dat_i[name_output]
+          
+        }
+      }
+      ,error=function(e) {
+        print(e)
+      })
+      
+    })
+    
+    return(do.call(rbind, res_tab))
+  }
+}
+#用idp作暴露
+workPath="D:/document/bioInfo/atherosclerosis-eye"
+dir.create(workPath)
+idpPath="E:/anaFiles/atherosclerosisGwas/tsv/"
+idpCsvPath="E:/anaFiles/atherosclerosisGwas/csv/"
+#导出or,he,ple记录
+saveRecord=TRUE
+#导出presso,radialMR,plot文件 (开启循环变慢)
+exportFile=FALSE
+
+#Part2:需要添加文件部分
+#创建文件夹
+dir.create(paste(workPath,"/outcome",sep=""))#结局文件路径
+dir.create(paste(workPath,"/exposure",sep=""))#暴露文件路径
+#把暴露和结局ID放进/exposure和/outcome
+dir.create(paste(workPath,"/result",sep=""))#结果路径
+if(saveRecord){
+  dir.create(paste(workPath,"/result/or",sep=""))#or文件路径
+  dir.create(paste(workPath,"/result/ple",sep=""))#ple文件路径
+  dir.create(paste(workPath,"/result/he",sep=""))#he文件路径
+  dir.create(paste(workPath,"/result/pdf",sep=""))#pdf文件路径
+  dir.create(paste(workPath,"/result/steiger",sep=""))#steiger文件路径
+  dir.create(paste(workPath,"/result/direct",sep=""))#direct文件路径
+  dir.create(paste(workPath,"/result/presso",sep=""))#presso文件路径
+  dir.create(paste(workPath,"/result/radialMR",sep=""))#radialMR文件路径
+}
+
+idpCsvLists=list.files(path=idpCsvPath, pattern=NULL, all.files=FALSE, full.names=FALSE)
+errorData_exp=c();#报错数据
+errorData_out=c();
+allResultTable=data.frame()
+resultTable=data.frame()
+resultTable_ivw=data.frame()
+#结局文件
+outcomeId=c()
+outcomePath="/outcome"
+outPath=list.files(path=paste(workPath,outcomePath,sep=""), pattern=NULL, all.files=FALSE, full.names=FALSE)
+for(m in outPath){
+  readId=read.table(paste(workPath,outcomePath,'/',m,sep=""),fill = TRUE,row.names = NULL)[,c(1)]
+  outcomeId=c(outcomeId,readId)
+}
+outcomeId=outcomeId[grepl("-", outcomeId)]
+outcomeId=unique(outcomeId)
+length_outcome=length(outcomeId)
+
+#rerun
+idpLists=list.files(path=idpPath, pattern=NULL, all.files=FALSE, full.names=FALSE)
+#
+
+#idpLists=idpLists[which(regexpr(thisName,idpLists)==1):length(idpLists)]
+#开始分析
+if(TRUE){
+  filename=idpLists[3]
+  thisName=strsplit(filename,"\\.",fixed = FALSE)[[1]][1]
+  n=thisName
+  csvFileName=paste0(idpCsvPath,thisName,".csv")
+  expCsvName=paste0("E:/anaFiles/atherosclerosisGwas/exp-6/",thisName,".exp.csv")
+  naCsvName=paste0(idpCsvPath,thisName,".txt.na")
+  if(file.exists(naCsvName)){
+    next
+  }
+  
+  if(!file.exists(expCsvName)){
+    if(!file.exists(csvFileName)){
+      idp=data.table::fread(paste0(idpPath,filename)  ,header = TRUE)
+      idp=subset(idp, p_value < (5*(10^-6)))
+      if(nrow(idp)==0){
+        write.csv(idp,paste0(csvFileName,".na"))
+        rm(idp)
+        gc()
+        next
+      }
+      write.csv(idp,csvFileName)
+      rm(idp)
+      gc()
+    }
+    rsid="rsID"
+    result=tryCatch({
+      exposure_dat=read_exposure_data(
+        filename = csvFileName,
+        clump = FALSE,
+        sep = ",",
+        #phenotype_col = "Phenotype",
+        snp_col = "rsid",
+        beta_col = "beta",
+        se_col = "standard_error",
+        eaf_col = "effect_allele_frequency",
+        effect_allele_col = "effect_allele", 
+        other_allele_col = "other_allele",
+        pval_col = "p_value",
+        #units_col = "units",
+        #ncase_col = "N_case",
+        #ncontrol_col = "af_alt_controls",
+        #samplesize_col = "samplesize N",
+        #gene_col = "gene",
+        #id_col = "id",
+        min_pval = 1e-200,
+        log_pval = FALSE
+      )
+    },
+    error=function(e) {
+      print(e)
+      return(NULL)
+    })
+    if(is.null(result)){
+      next
+    }
+    #api
+    #exposure_dat2_clumped2=clump_data(exposure_dat)
+    #本地
+    result=tryCatch({
+      exposure_dat_clumped=ld_clump(
+        dplyr::tibble(rsid=exposure_dat$SNP, pval=exposure_dat$pval.exposure, id=exposure_dat$id.exposure),
+        plink_bin = "D:/program/plink/plink.exe",
+        bfile = "D:/document/bioInfo/EUR/EUR"
+      )
+    },
+    error=function(e) {
+      print(e)
+      return(NULL)
+    })
+    if(is.null(result)){
+      next
+    }
+    exposure_dat=exposure_dat[exposure_dat$SNP %in% exposure_dat_clumped$rsid,]
+    exposure_dat$id.exposure=thisName
+    exposure_dat$exposure=thisName
+    write.csv(exposure_dat, expCsvName, row.names = FALSE)
+    if(any(is.na(exposure_dat$eaf.exposure))){
+      result=tryCatch({
+        exposure_dat_add=snp_add_eaf(exposure_dat)
+      },
+      error=function(e) {
+        print(e)
+        return(NULL)
+      })
+      if(is.null(result)){
+        write.csv(exposure_dat_add, expCsvName, row.names = FALSE)
+      }
+    }
+    
+  }
+  result=tryCatch({
+    exposure_dat=read.csv(expCsvName)
+  },
+  error=function(e) {
+    print(e)
+    return(NULL)
+  })
+  if(is.null(result)){
+    next
+  }
+  for(m in outcomeId){
+    if (file.exists(paste(workPath,"/result/or/",n,' ',m," or.csv",sep=""))){
+      next
+    }
+    while(TRUE){
+      message_to_next <<- TRUE
+      error_to_next <<- FALSE
+      result=tryCatch({
+        withCallingHandlers(
+          outcome_dat<-extract_outcome_data(snps=exposure_dat$SNP,outcomes = m),
+          message = function(c) if (stringr::str_detect(as.character(c),"Failed to"))
+            message_to_next <<- FALSE)
+        error_to_next <<- TRUE
+      },
+      error=function(e) {
+        print(e)
+        if (grepl("used up your OpenGWAS allowance", as.character(e), fixed = TRUE)) {
+          message("检测到达到 OpenGWAS 配额限制，等待 5 分钟后继续...")
+          Sys.sleep(300) # 等待 5 分钟（300 秒）
+        }
+        return(NULL)
+      })
+      if(message_to_next == TRUE&error_to_next == TRUE)
+        break
+      if(is.null(result)){
+        outcome_dat=NULL
+        break
+      }
+    }
+    #空数据
+    if(!length(outcome_dat)||dim(outcome_dat)[1]==0 ){
+      print(paste0(m," is null"))
+      errorData_out=c(errorData_out,m)
+      next
+    }
+    dat <- harmonise_data(exposure_dat,outcome_dat)
+    
+    if(!length(dat)||dim(dat)[1]==0 ){
+      errorData_out=c(errorData_out,m)
+      errorData_exp=c(errorData_exp,n)
+      next
+    }
+    #异质性多效性
+    ple<-mr_pleiotropy_test(dat);
+    he<-mr_heterogeneity(dat);
+    if(length(ple$pval)==0||length(he$Q_pval)==0){#可能出现没有足够snp
+      
+      #res <- mr(dat)
+      res <- mr(dat,method_list=c("mr_egger_regression","mr_weighted_median","mr_ivw","mr_raps_modified","mr_weighted_mode"))
+      if(nrow(res)==0)
+        next
+      ivw="Inverse variance weighted"
+      if(!is.null(res$method))
+        res[is.na(res$method),]$method="Robust Adjusted Profile Score"
+    }else{
+      if(he[he$method=="Inverse variance weighted",]$Q_pval<0.05){
+        he=mr_heterogeneity(dat, method_list = c("mr_egger_regression", "mr_ivw_mre"))#he更改方法
+        #存在异质性时随机效应ivw_mre，同时raps替换simple mode
+        res <- mr(dat,method_list=c( "mr_egger_regression","mr_weighted_median","mr_ivw_mre","mr_raps_modified","mr_weighted_mode"))
+        if(nrow(res)==0)
+          next
+        ivw="Inverse variance weighted (multiplicative random effects)"
+      }else{
+        #res <- mr(dat)
+        res <- mr(dat,method_list=c("mr_egger_regression","mr_weighted_median","mr_ivw","mr_raps_modified","mr_weighted_mode"))
+        if(nrow(res)==0)
+          next
+        ivw="Inverse variance weighted"
+      }
+      if(!is.null(res$method))
+        res[is.na(res$method),]$method="Robust Adjusted Profile Score"
+    }
+    #mr_method_list()#列出方法
+    #空数据
+    if(length(res)==0){
+      next
+    }
+    or<-generate_odds_ratios(res);
+    #or写入HE，只保留IVW
+    if(length(he)==0){
+      or[,15]=NA
+    }else{
+      if(dim(he)[1]>1&he[2,]$method==ivw){
+        or[,15]=he[he$method==ivw,]$Q_pval
+      }else{
+        or[,15]=he[1,]$Q_pval
+      }
+    }
+    colnames(or)[15]="he"
+    #or写入PLE
+    if(length(ple)==0){
+      or[,16]=NA
+    }else{
+      or[,16]=ple[1,7]
+    }
+    colnames(or)[16]="ple"
+    
+    or[,17]=Ff(exposure_dat)$fm
+    colnames(or)[17]="F"
+    allResultTable=rbind(allResultTable,or)
+    
+    print(as.POSIXlt(Sys.time()))
+    print(paste('id.exposure(i):',n))
+    print(paste('id.outcome(j):',m))
+    
+    #留存记录
+    if(saveRecord){
+      write.csv(or,paste(workPath,"/result/or/",n,' ',m," or.csv",sep=""),row.names = F)
+      write.csv(ple,paste(workPath,"/result/ple/",n,' ',m," ple.csv",sep=""),row.names = F)
+      write.csv(he,paste(workPath,"/result/he/",n,' ',m," he.csv",sep=""),row.names = F)
+      if((!is.null(dat$samplesize.exposure[1]))&(!is.null(dat$samplesize.outcome[1]))){
+        if((!is.na(dat$samplesize.exposure[1]))&(!is.na(dat$samplesize.outcome[1]))){
+          direct=directionality_test(dat)#反向因果
+          steiger<-steiger_filtering(dat)#Steiger过滤
+          write.csv(direct,paste(workPath,"/result/direct/",n,' ',m," direct.csv",sep=""),row.names = F)
+          write.csv(steiger,paste(workPath,"/result/steiger/",n,' ',m," steiger.csv",sep=""),row.names = F)
+        }
+      }
+      
+    }
+    #挑选结果（其一显著则保存）
+    pval=or$pval
+    if(length(pval)>1){
+      for(p in pval)
+        if(p<0.05){
+          #resultTable汇总五种方法其一显著
+          resultTable=rbind(resultTable,or)
+          #resultTable_ivw进一步进行敏感性校验且只含ivw方法
+          if(dim(or[or$method==ivw,])[1]>0&or[or$method==ivw,]$pval<0.05&length(ple$pval)>0){
+            if(!is.na(ple[1,]$pval)){
+              if(ple[1,]$pval>0.05){
+                if(length(he$method)==2&he[2,]$method==ivw&he[2,]$Q_pval>0.05){
+                  resultTable_ivw=rbind(resultTable_ivw,or[or$method==ivw,])
+                }else if(length(he$method)==1&he[1,]$method==ivw&he[1,]$Q_pval>0.05){
+                  resultTable_ivw=rbind(resultTable_ivw,or[or$method==ivw,])
+                }
+              }
+            }
+          }
+          break;
+        }
+    }
+    
+  }
+}
+#保存
+if(length(resultTable)!=0){
+  write.xlsx(resultTable,paste(workPath,'/result/result.xlsx',sep=""), sheetName=strsplit(sheet_name,"//.",fixed = FALSE)[[1]][1],append=TRUE,row.names=FALSE) 
+  if(length(resultTable_ivw)!=0){
+    write.xlsx(resultTable_ivw,paste(workPath,'/result/result-ivw.xlsx',sep=""), sheetName=strsplit(sheet_name,"//.",fixed = FALSE)[[1]][1],append=TRUE,row.names=FALSE) 
+  }
+  print(paste('file:',sheet_name,' saved '))
+}else{
+  print(paste('file:',sheet_name,' length 0'))
+}
+
+write.xlsx(allResultTable,paste(workPath,'/result/allResult.xlsx',sep=""), sheetName="all",append=TRUE,row.names=FALSE) 
+if(FALSE){
+  #遇到报错导致循环中断可执行此部分手动生成AllResult
+  allResultTable=data.frame()
+  getPath=list.files(path=paste(workPath,"/result/or",sep=""), pattern=NULL, all.files=FALSE, full.names=FALSE)
+  for(m in getPath){
+    readCsv=read.csv(paste(workPath,'/result/or/',m,sep=""),fill = TRUE,row.names = NULL)
+    allResultTable=rbind(allResultTable,readCsv)
+  }
+  write.xlsx(allResultTable,paste(workPath,'/result/allResult.xlsx',sep=""), sheetName="all",append=TRUE,row.names=FALSE) 
+}
+
+
+
+if(FALSE){
+  #library("dplyr")
+  #本地clump
+  b <- ld_clump(
+    dplyr::tibble(rsid=a$rsid, pval=a$p, id=a$id),
+    #get_plink_exe()
+    plink_bin = "D:/program/plink/plink.exe",
+    #欧洲人群参考基因组位置
+    bfile = "D:/document/bioInfo/EUR"
+  )
+}
+
+
+
+
+
